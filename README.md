@@ -1,10 +1,11 @@
 # 🌍 Sovereign Credit Watch (Fitch SRM Replicator)
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://streamlit.io)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://dashboardsrm.streamlit.app/)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
 **Sovereign Credit Watch** is an interactive analytical dashboard designed to replicate the **Fitch Ratings Sovereign Rating Model (SRM)**. It allows analysts, economists, and researchers to reverse-engineer sovereign credit scores, visualize peer comparisons, and simulate the impact of economic policy changes on a country's credit rating.
+**Live dashboard:** 🚀 [Klik di sini untuk mencoba Dashboard](https://dashboardsrm.streamlit.app/)
 
 ## 🚀 Motivation
 
