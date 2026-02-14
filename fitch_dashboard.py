@@ -435,20 +435,26 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
 if uploaded_file or df is not None:
     try:
         # Jika dari upload, load seperti biasa
-        if uploaded_file:
+        if uploaded_file is not None:
             file_ext = uploaded_file.name.split('.')[-1].lower()
             engine = 'pyxlsb' if file_ext == 'xlsb' else None 
             if file_ext == 'xlsb':
-                try: df = pd.read_excel(uploaded_file, sheet_name='Data', header=None, engine=engine)
-                except: df = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine=engine)
+                try: 
+                    df = pd.read_excel(uploaded_file, sheet_name='Data', header=None, engine=engine)
+                except: 
+                    df = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine=engine)
             else:
                 xl = pd.ExcelFile(uploaded_file)
                 sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
                 df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
             period = extract_period_from_filename(uploaded_file.name)
-        else:
-            # Jika dari database, ambil periode dari metadata (atau set manual)
+
+        elif df is not None:  # ← Dari database
             period = "Database Terkini (Live Data)"
+            
+        else:
+            # Jika tidak ada file dan tidak ada database
+            st.stop()
 
     
 
