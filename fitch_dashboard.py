@@ -249,7 +249,7 @@ def render_qo_analysis(qo_val, country):
             background-color: {bg_color};
             border: 1px solid {border_color};
             border-left: 8px solid {border_color};
-            padding: 20px;
+            padding: 8px 25px;
             border-radius: 8px;
             color: {text_color};
             margin-bottom: 25px;
