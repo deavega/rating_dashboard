@@ -555,10 +555,7 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                 raw['ext_int_service'] = safe_float(r[C['ext_int']])
                 raw['ca_fdi'] = safe_float(r[C['ca_fdi']])
 
-                """ # Indonesia Adjustments (Hardcoded Fitch Rules)
-                if country == 'Indonesia':
-                    if raw['wgi'] > 50: raw['wgi'] = 43.6 
-                    if raw['gdp_volatility'] < 1.0: raw['gdp_volatility'] = 2.5 """
+               
 
                 score, breakdown = calculate_single_score(raw, INTERCEPT, COEFFICIENTS)
                 if raw['rc_flex'] < 1.0 and score > 12.5: score = 12.0
