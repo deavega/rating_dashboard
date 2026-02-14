@@ -361,12 +361,13 @@ with st.sidebar:
                 background-color: #fafafa;
                 border: 1px solid #d1d1d1;
                 border-radius: 2px;
-                padding: 12px;
+                padding: 8px 4px 8px 8px; 
                 margin-top: 10px;
             }
             .sidebar-news-wrapper {
                 position: absolute;
-                width: 100%;
+                width: 98%;
+                padding-right: 0;
                 animation: scroll-vertical-sidebar 95s linear infinite;
             }
             .sidebar-news-container:hover .sidebar-news-wrapper {
@@ -379,7 +380,7 @@ with st.sidebar:
             .sidebar-news-card {
                 background: white;
                 margin-bottom: 16px;
-                padding: 14px 0;
+                padding: 12px 8px;
                 border-bottom: 1px solid #e5e5e5;
                 transition: all 0.2s;
             }
@@ -399,7 +400,7 @@ with st.sidebar:
                 margin-bottom: 6px;
                 color: #121212;
                 letter-spacing: -0.01em;
-                font-style: italic;  
+                max-width: 100%;  
                 
                 display: -webkit-box;
                 -webkit-line-clamp: 3;
