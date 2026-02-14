@@ -400,6 +400,14 @@ with st.sidebar:
                 color: #121212;
                 letter-spacing: -0.01em;
                 font-style: italic;  
+                
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                word-wrap: break-word;
+            
             }
             .sidebar-news-card:hover .sidebar-news-title {
                 color: #326891;
