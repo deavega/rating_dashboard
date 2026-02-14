@@ -403,6 +403,7 @@ data_source = st.radio(
     label_visibility="collapsed"
 )
 
+# ✅ INISIALISASI di awal
 uploaded_file = None
 df = None
 
@@ -443,14 +444,13 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
                 st.session_state.authenticated = False
                 st.rerun()
         
-        # ✅ PERBAIKAN: Unpack tuple
-        df_temp, _ = load_database()  # Ignore period di sini
-        df = df_temp
+        # ✅ PERBAIKAN: Unpack tuple dengan benar
+        df, _ = load_database()
         if df is None:
             st.stop()
 
 # --- PROSES DATA (Gabungkan logika upload & database) ---
-if uploaded_file or df is not None:
+if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is not None
     try:
         # Jika dari upload, load seperti biasa
         if uploaded_file is not None:
@@ -468,13 +468,11 @@ if uploaded_file or df is not None:
             period = extract_period_from_filename(uploaded_file.name)
 
         elif df is not None:  # ← Dari database
-            period = "Database Terkini (Live Data)"
+            period = "Database Terkini (December 2025)"
             
         else:
             # Jika tidak ada file dan tidak ada database
             st.stop()
-
-    
 
         # Mapping Columns
         C = {
@@ -558,6 +556,7 @@ if uploaded_file or df is not None:
                     'Pred Rating Num': rating_int, 'Actual Rating Num': actual_int, 'QO': qo, 
                     'HDI': safe_float(r[C['hdi']]), 'GDP Nominal': raw_gdp_val, 'Raw': raw
                 })
+                
             except: continue
 
         full_df = pd.DataFrame(results)
@@ -912,6 +911,8 @@ if uploaded_file or df is not None:
                 st.info("💡 Pilih negara pembanding dari daftar di atas.")
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"❌ Error saat memproses data: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 else:
     st.info("👋 Silakan unggah file Excel untuk memulai.")
