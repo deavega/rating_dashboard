@@ -399,6 +399,7 @@ with st.sidebar:
                 margin-bottom: 6px;
                 color: #121212;
                 letter-spacing: -0.01em;
+                font-style: italic;  
             }
             .sidebar-news-card:hover .sidebar-news-title {
                 color: #326891;
