@@ -26,33 +26,49 @@ def verify_passcode(input_code):
         return False
 
 def load_database():
-    """Load database dari Google Drive"""
+    """Load database dari Google Drive dan proses seperti upload manual"""
     if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        return None
+        return None, None
     
     try:
-        # Ambil kredensial dari secrets
+        import gdown
+        import os
+        
+        # Ambil File ID dari secrets
         file_id = st.secrets["database"]["file_id"]
         
-        # Download sementara (tidak tersimpan permanen)
+        # Download file temporary
         url = f"https://drive.google.com/uc?id={file_id}"
-        output = "temp_database.xlsx"
+        output_path = "temp_database.xlsx"
         
-        gdown.download(url, output, quiet=True)
+        with st.spinner("📥 Mengunduh database dari server..."):
+            gdown.download(url, output_path, quiet=True)
         
-        # Load seperti biasa
-        xl = pd.ExcelFile(output)
-        sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
-        df = pd.read_excel(output, sheet_name=sheet_name, header=None)
+        # Detect extension dan load
+        if output_path.endswith('.xlsb'):
+            try: 
+                df = pd.read_excel(output_path, sheet_name='Data', header=None, engine='pyxlsb')
+            except: 
+                df = pd.read_excel(output_path, sheet_name=0, header=None, engine='pyxlsb')
+        else:
+            xl = pd.ExcelFile(output_path)
+            sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
+            df = pd.read_excel(output_path, sheet_name=sheet_name, header=None)
+        
+        # Extract period dari nama file di Drive (opsional)
+        period = "Database Terkini (December 2025)"
         
         # Hapus file temporary
-        import os
-        os.remove(output)
+        if os.path.exists(output_path):
+            os.remove(output_path)
         
-        return df
+        return df, period
+        
     except Exception as e:
-        st.error(f"⚠️ Gagal akses database: {e}")
-        return None
+        st.error(f"⚠️ Gagal memuat database: {e}")
+        import traceback
+        st.code(traceback.format_exc())
+        return None, None
 
 # --- 1. KONFIGURASI & METADATA ---
 
