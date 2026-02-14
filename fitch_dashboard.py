@@ -424,7 +424,7 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
             passcode_input = st.text_input(
                 "Masukkan Passcode:", 
                 type="password",
-                placeholder="Contoh: Dspp2026#"
+                placeholder="Masukkan passcode yang Anda miliki, contoh: Google12345*"
             )
             submit = st.form_submit_button("🔓 Verifikasi & Akses Database")
             
