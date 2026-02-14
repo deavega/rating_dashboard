@@ -360,11 +360,11 @@ st.markdown("""
     /* 5. Custom styling untuk box deskripsi dashboard */
     .description-box {
         background-color: #f8f9fa;
-        padding: 25px;
-        border-radius: 20px;
-        border-left: 8px solid #1E3A8A;
+        padding: 8px 25px; /* UPDATED: Atas-Bawah 15px, Kiri-Kanan 25px */
+        border-radius: 12px;
+        border-left: 6px solid #1E3A8A;
         margin-top: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
     
     /* 6. Font Tabel Peer */
@@ -375,7 +375,7 @@ st.markdown("""
     /* 7. Penyesuaian Subheader */
     h2, h3 {
         font-size: 1.2rem !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
         color: #333 !important;
     }
             
@@ -675,7 +675,7 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
             st.subheader("🌐 Peta Kuadran Rating Global")
             plot_df = full_df.dropna(subset=['Actual Rating Num', 'Pred Rating Num']).copy()
             def get_status(row):
-                if row['Country'] == sel: return "📍 NEGARA TERPILIH"
+                if row['Country'] == sel: return "NEGARA TERPILIH"
                 diff = row['Actual Rating Num'] - row['Pred Rating Num']
                 if diff > 0: return 'Underrated (QO+)'
                 elif diff < 0: return 'Overrated (QO-)'
@@ -703,7 +703,7 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                 })
             st.dataframe(pd.DataFrame(method_data), use_container_width=True, height=600)
 
-        # --- TAB 3: SIMULASI KEBIJAKAN (FIXED) ---
+
         # --- TAB 3: SIMULASI KEBIJAKAN (FIXED & DYNAMIC) ---
         with tab3:
             st.subheader(f"Simulasi Kebijakan untuk Negara: {sel}")
