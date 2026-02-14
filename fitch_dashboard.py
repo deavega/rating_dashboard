@@ -443,7 +443,9 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
                 st.session_state.authenticated = False
                 st.rerun()
         
-        df = load_database()
+        # ✅ PERBAIKAN: Unpack tuple
+        df_temp, _ = load_database()  # Ignore period di sini
+        df = df_temp
         if df is None:
             st.stop()
 
