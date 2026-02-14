@@ -1,4 +1,7 @@
 import streamlit as st
+import html
+import feedparser 
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -8,6 +11,22 @@ import gdown
 import json
 import difflib # Library bawaan untuk pencocokan teks
 from io import BytesIO
+
+# ==============================================
+# FUNGSI BERITA (DIDEFINISIKAN DI LEVEL GLOBAL)
+# ==============================================
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_google_news():
+    """Fetch berita dari Google News RSS"""
+    if feedparser is None:
+        return []
+    try:
+        rss_url = "https://news.google.com/rss/search?q=Ekonomi+Indonesia+Keuangan&hl=id-ID&gl=ID&ceid=ID:id"
+        feed = feedparser.parse(rss_url)
+        return feed.entries[:10]
+    except Exception:
+        return []
+
 
 HISTORICAL_GDRIVE_URL = "https://drive.google.com/file/d/1L122pySsbPDy1tKHbZfUruPWEgMbARHM/view?usp=sharing"
 # --- HELPER: LOAD CSV DARI DRIVE ---
@@ -46,6 +65,11 @@ try:
     from pypdf import PdfReader
 except ImportError:
     PdfReader = None
+
+try:
+    import feedparser  # ✅ TAMBAHKAN INI
+except ImportError:
+    feedparser = None
 
 # --- SECURITY CONFIG ---
 def verify_passcode(input_code):
@@ -309,6 +333,130 @@ with st.sidebar:
     COEFFICIENTS = ACTIVE_PARAMS['coeffs']
     INTERCEPT = ACTIVE_PARAMS['intercept']
 
+    # ============================================
+    # 📰 BERITA EKONOMI (TARUH DI SINI)
+    # ============================================
+    st.divider()
+    
+    col_news_title, col_news_btn = st.columns([3, 1])
+    with col_news_title:
+        st.markdown("### Artikel Indonesia")
+    with col_news_btn:
+        if st.button("🔄", key="btn_refresh_news", help="Refresh"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    # Fetch berita
+    news_items = fetch_google_news()
+    
+    if news_items:
+        css_style = """
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;700&family=Work+Sans:wght@400;500&display=swap');
+            
+            .sidebar-news-container {
+                height: 350px;
+                overflow: hidden;
+                position: relative;
+                background-color: #fafafa;
+                border: 1px solid #d1d1d1;
+                border-radius: 2px;
+                padding: 12px;
+                margin-top: 10px;
+            }
+            .sidebar-news-wrapper {
+                position: absolute;
+                width: 100%;
+                animation: scroll-vertical-sidebar 95s linear infinite;
+            }
+            .sidebar-news-container:hover .sidebar-news-wrapper {
+                animation-play-state: paused;
+            }
+            @keyframes scroll-vertical-sidebar {
+                0%   { transform: translateY(0); }
+                100% { transform: translateY(-100%); }
+            }
+            .sidebar-news-card {
+                background: white;
+                margin-bottom: 16px;
+                padding: 14px 0;
+                border-bottom: 1px solid #e5e5e5;
+                transition: all 0.2s;
+            }
+            .sidebar-news-card:hover {
+                background-color: #f9f9f9;
+            }
+            .sidebar-news-card a {
+                text-decoration: none;
+                color: #121212;
+                display: block;
+            }
+            .sidebar-news-title {
+                font-family: 'Lora', 'Georgia', serif;
+                font-size: 14px;
+                font-weight: 700;
+                line-height: 1.5;
+                margin-bottom: 6px;
+                color: #121212;
+                letter-spacing: -0.01em;
+            }
+            .sidebar-news-card:hover .sidebar-news-title {
+                color: #326891;
+                text-decoration: underline;
+                text-decoration-thickness: 1px;
+                text-underline-offset: 2px;
+            }
+            .sidebar-news-date {
+                font-family: 'Work Sans', 'Arial', sans-serif;
+                font-size: 10px;
+                font-weight: 500;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+        </style>
+        """
+        
+        cards_html_list = []
+        for item in news_items:
+            raw_title = item.title.rsplit(' - ', 1)[0] if ' - ' in item.title else item.title
+            clean_title = html.escape(raw_title)
+            clean_link = html.escape(item.link)
+            
+            date_str = ""
+            if hasattr(item, 'published'):
+                try:
+                    date_str = item.published.rsplit(' ', 1)[0]
+                except:
+                    date_str = "Baru"
+            
+            card = f"""
+            <div class="sidebar-news-card">
+                <a href="{clean_link}" target="_blank" rel="noopener noreferrer">
+                    <div class="sidebar-news-title">{clean_title}</div>
+                    <div class="sidebar-news-date">📅 {date_str}</div>
+                </a>
+            </div>
+            """
+            cards_html_list.append(card)
+        
+        all_cards = "".join(cards_html_list)
+        duplicated_cards = all_cards + all_cards
+        
+        final_html = f"""
+        {css_style}
+        <div class="sidebar-news-container">
+            <div class="sidebar-news-wrapper">
+                {duplicated_cards}
+            </div>
+        </div>
+        """
+        
+        components.html(final_html, height=370, scrolling=False)
+        
+    else:
+        st.caption("⚠️ Gagal memuat berita.")
+
 # Judul dengan Class CSS khusus untuk kontrol jarak
 st.markdown('<div class="main-title"><h1>🌍 Sovereign Credit Watch</h1></div>', unsafe_allow_html=True)
 
@@ -424,6 +572,10 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
 
 # --- OPSI AKSES DATA ---
 st.markdown("### 📂 Pilih Sumber Data")
