@@ -10,7 +10,6 @@ from io import BytesIO
 try:
     from pypdf import PdfReader
 except ImportError:
-    st.error("Library 'pypdf' belum terinstall. Mohon jalankan: pip install pypdf")
     PdfReader = None
 
 # --- 1. KONFIGURASI & METADATA ---
@@ -26,31 +25,39 @@ SRM_VERSIONS = {
             'rc_flex': 0.494, 'snfa': 0.011, 'commodity_dep': -0.004,
             'reserves_months': 0.024, 'ext_int_service': -0.004, 'ca_fdi': 0.004
         }
+    },
+    "2024 (Legacy)": { 
+        "intercept": 4.874, 
+        "coeffs": {
+            'wgi': 0.080, 'gdp_pc': 0.040, 'world_gdp_share': 0.600,
+            'default_record': -1.800, 'money_supply': 0.150, 'gdp_volatility': -0.700,
+            'inflation': -0.070, 'real_growth': 0.060, 'gg_debt': -0.025,
+            'int_rev': -0.045, 'fiscal_bal': 0.040, 'fc_debt': -0.010,
+            'rc_flex': 0.500, 'snfa': 0.010, 'commodity_dep': -0.005,
+            'reserves_months': 0.025, 'ext_int_service': -0.005, 'ca_fdi': 0.005
+        }
     }
 }
 
 INDICATOR_META = {
-    'wgi': {'Name': 'Governance (WGI)', 'Type': 'Structural', 'Unit': 'Index 0-100', 'Trans': 'Linear', 'Keywords': ['governance', 'structural', 'political']},
-    'gdp_pc': {'Name': 'GDP per Capita (PPP)', 'Type': 'Structural', 'Unit': '% of US', 'Trans': 'Linear', 'Keywords': ['gdp per capita', 'income']},
-    'world_gdp_share': {'Name': 'World GDP Share', 'Type': 'Structural', 'Unit': '% Share', 'Trans': 'Log', 'Keywords': ['size', 'share']},
-    'default_record': {'Name': 'Years Since Default', 'Type': 'Structural', 'Unit': 'Years', 'Trans': 'Inverse', 'Keywords': ['default', 'history']},
-    'money_supply': {'Name': 'Broad Money', 'Type': 'Structural', 'Unit': '% GDP', 'Trans': 'Log', 'Keywords': ['intermediation', 'banking']},
-    
-    'gdp_volatility': {'Name': 'Real GDP Volatility', 'Type': 'Macro', 'Unit': 'Std Dev', 'Trans': 'Log_Floor', 'Keywords': ['volatility']},
-    'inflation': {'Name': 'Inflation (CPI)', 'Type': 'Macro', 'Unit': '%', 'Trans': 'Cap_50', 'Keywords': ['inflation', 'cpi']},
-    'real_growth': {'Name': 'Real GDP Growth', 'Type': 'Macro', 'Unit': '%', 'Trans': 'Linear', 'Keywords': ['growth', 'gdp growth']},
-    
-    'gg_debt': {'Name': 'Govt Debt', 'Type': 'Fiscal', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['debt', 'public finance', 'fiscal']},
-    'int_rev': {'Name': 'Interest/Revenue', 'Type': 'Fiscal', 'Unit': '% Rev', 'Trans': 'Linear', 'Keywords': ['interest', 'revenue', 'affordability']},
-    'fiscal_bal': {'Name': 'Fiscal Balance', 'Type': 'Fiscal', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['deficit', 'fiscal balance']},
-    'fc_debt': {'Name': 'Foreign Ccy Debt', 'Type': 'Fiscal', 'Unit': '% Total Debt', 'Trans': 'Linear', 'Keywords': ['foreign currency', 'fx debt']},
-    
+    'wgi': {'Name': 'Governance (WGI)', 'Type': 'Structural', 'Unit': 'Index 0-100', 'Trans': 'Linear', 'Keywords': ['governance', 'political stability', 'rule of law']},
+    'gdp_pc': {'Name': 'GDP per Capita (PPP)', 'Type': 'Structural', 'Unit': '% of US', 'Trans': 'Linear', 'Keywords': ['income', 'wealth', 'gdp per capita']},
+    'world_gdp_share': {'Name': 'World GDP Share', 'Type': 'Structural', 'Unit': '% Share', 'Trans': 'Log', 'Keywords': ['economy size']},
+    'default_record': {'Name': 'Years Since Default', 'Type': 'Structural', 'Unit': 'Years', 'Trans': 'Inverse', 'Keywords': ['default history', 'restructuring']},
+    'money_supply': {'Name': 'Broad Money', 'Type': 'Structural', 'Unit': '% GDP', 'Trans': 'Log', 'Keywords': ['banking sector', 'financial depth']},
+    'gdp_volatility': {'Name': 'Real GDP Volatility', 'Type': 'Macro', 'Unit': 'Std Dev', 'Trans': 'Log_Floor', 'Keywords': ['volatility', 'shock']},
+    'inflation': {'Name': 'Inflation (CPI)', 'Type': 'Macro', 'Unit': '%', 'Trans': 'Cap_50', 'Keywords': ['inflation', 'price stability']},
+    'real_growth': {'Name': 'Real GDP Growth', 'Type': 'Macro', 'Unit': '%', 'Trans': 'Linear', 'Keywords': ['growth', 'economic activity']},
+    'gg_debt': {'Name': 'Govt Debt (% GDP)', 'Type': 'Fiscal', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['government debt', 'public debt', 'debt burden', 'fiscal consolidation']},
+    'int_rev': {'Name': 'Interest/Revenue', 'Type': 'Fiscal', 'Unit': '% Rev', 'Trans': 'Linear', 'Keywords': ['interest payment', 'affordability']},
+    'fiscal_bal': {'Name': 'Fiscal Balance', 'Type': 'Fiscal', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['fiscal deficit', 'budget balance']},
+    'fc_debt': {'Name': 'Foreign Currency Debt', 'Type': 'Fiscal', 'Unit': '% Total Debt', 'Trans': 'Linear', 'Keywords': ['foreign currency debt', 'fx exposure']},
     'rc_flex': {'Name': 'Reserve Currency Flex.', 'Type': 'External', 'Unit': 'Index 0-4.6', 'Trans': 'Linear', 'Keywords': ['reserve currency']},
-    'snfa': {'Name': 'Net Foreign Assets', 'Type': 'External', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['net foreign assets', 'nfa']},
-    'commodity_dep': {'Name': 'Commodity Dep.', 'Type': 'External', 'Unit': '% CXR', 'Trans': 'Linear', 'Keywords': ['commodity']},
-    'reserves_months': {'Name': 'Reserves', 'Type': 'External', 'Unit': 'Months CXP', 'Trans': 'Linear', 'Keywords': ['reserves', 'fx reserve', 'external liquidity']},
-    'ext_int_service': {'Name': 'Ext. Interest Service', 'Type': 'External', 'Unit': '% CXR', 'Trans': 'Linear', 'Keywords': ['external interest']},
-    'ca_fdi': {'Name': 'Current Account + FDI', 'Type': 'External', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['current account', 'cad', 'fdi']}
+    'snfa': {'Name': 'Net Foreign Assets', 'Type': 'External', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['net foreign assets', 'sovereign wealth fund']},
+    'commodity_dep': {'Name': 'Commodity Dep.', 'Type': 'External', 'Unit': '% CXR', 'Trans': 'Linear', 'Keywords': ['commodity', 'oil', 'resource']},
+    'reserves_months': {'Name': 'Reserves (Months)', 'Type': 'External', 'Unit': 'Months CXP', 'Trans': 'Linear', 'Keywords': ['foreign reserves', 'fx reserves', 'liquidity']},
+    'ext_int_service': {'Name': 'Ext. Interest Service', 'Type': 'External', 'Unit': '% CXR', 'Trans': 'Linear', 'Keywords': ['external debt service']},
+    'ca_fdi': {'Name': 'Current Account + FDI', 'Type': 'External', 'Unit': '% GDP', 'Trans': 'Linear', 'Keywords': ['current account', 'fdi', 'balance of payments']}
 }
 
 NUM_TO_RATING = {
@@ -75,38 +82,41 @@ def extract_period_from_filename(filename):
     if match: return match.group(0)
     return "(Periode Tidak Terdeteksi)"
 
-# --- 3. LOGIC PARSING PDF ---
 def parse_fitch_report(pdf_file):
+    """Membaca PDF Fitch dan mencari faktor sensitivitas"""
     if PdfReader is None: return {}
-    reader = PdfReader(pdf_file)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text()
-    
-    sensitivities = {'Positive': [], 'Negative': []}
     try:
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        
+        sensitivities = {'Positive': [], 'Negative': []}
         clean_text = re.sub(r'\s+', ' ', text)
         
-        # Regex Pattern
-        neg_match = re.search(r'Lead to Negative Rating Action/Downgrade(.*?)Factors that Could', clean_text, re.IGNORECASE)
-        if not neg_match: neg_match = re.search(r'Lead to Negative Rating Action/Downgrade(.*?)SOVEREIGN RATING MODEL', clean_text, re.IGNORECASE)
+        # Regex mencari section "Rating Sensitivities"
+        # Pola umum: "Factors that Could, Individually or Collectively, Lead to Negative Rating Action/Downgrade"
+        neg_match = re.search(r'Lead to Negative Rating Action/Downgrade:?(.*?)Factors that Could', clean_text, re.IGNORECASE)
+        if not neg_match: neg_match = re.search(r'negative rating action(.*?)positive rating action', clean_text, re.IGNORECASE)
         
         if neg_match:
-            points = re.split(r' - | – ', neg_match.group(1))
+            points = re.split(r' - | – | • ', neg_match.group(1))
             sensitivities['Negative'] = [p.strip() for p in points if len(p) > 10]
 
-        pos_match = re.search(r'Lead to Positive Rating Action/Upgrade(.*?)Factors that Could', clean_text, re.IGNORECASE)
-        if not pos_match: pos_match = re.search(r'Lead to Positive Rating Action/Upgrade(.*?)SOVEREIGN RATING MODEL', clean_text, re.IGNORECASE)
+        pos_match = re.search(r'Lead to Positive Rating Action/Upgrade:?(.*?)Factors that Could', clean_text, re.IGNORECASE)
+        if not pos_match: pos_match = re.search(r'positive rating action(.*?)SOVEREIGN RATING MODEL', clean_text, re.IGNORECASE)
 
         if pos_match:
-            points = re.split(r' - | – ', pos_match.group(1))
+            points = re.split(r' - | – | • ', pos_match.group(1))
             sensitivities['Positive'] = [p.strip() for p in points if len(p) > 10]
             
+        return sensitivities
     except Exception as e:
         st.error(f"Gagal memparsing PDF: {e}")
-    return sensitivities
+        return {}
 
 def map_sensitivities_to_indicators(sensitivities):
+    """Mapping teks PDF ke kode indikator"""
     active_constraints = {} 
     for direction, points in sensitivities.items():
         for point in points:
@@ -116,67 +126,11 @@ def map_sensitivities_to_indicators(sensitivities):
                     if keyword in p_lower:
                         if code not in active_constraints:
                             active_constraints[code] = {'direction': [], 'text': []}
-                        active_constraints[code]['direction'].append(direction)
-                        active_constraints[code]['text'].append(point[:150]+"...")
+                        if direction not in active_constraints[code]['direction']:
+                            active_constraints[code]['direction'].append(direction)
+                            active_constraints[code]['text'].append(point)
     return active_constraints
 
-# --- FUNGSI RENDER QO (BERSIH & FORMAL) ---
-def render_qo_analysis(qo_val, country):
-    """Menampilkan analisis QO yang mendalam tanpa ikon"""
-    
-    if qo_val > 3:
-        st.warning(f"⚠️ **Pengecualian Struktural (+{qo_val} Notch): Kasus Khusus**")
-        st.markdown("""
-        Negara ini memiliki QO positif yang sangat besar (>3 notch). Ini biasanya terjadi pada **Negara Kecil yang Sangat Kaya** (seperti Singapura, Denmark, Norwegia).
-        
-        **Alasan Teknis:**
-        * Model SRM memiliki variabel **'World GDP Share'** yang menghukum negara dengan ekonomi kecil secara matematis.
-        * Komite Fitch harus mengoreksi bias ini karena negara tersebut memiliki aset luar negeri (Sovereign Wealth Funds) yang masif dan solvabilitas sangat tinggi yang tidak tertangkap sepenuhnya oleh model GDP flow.
-        """)
-
-    elif qo_val > 0:
-        st.success(f"✅ **Upgrade Kualitatif (+{qo_val} Notch): Fundamental Lebih Kuat dari Model**")
-        st.markdown(f"""
-        Komite Fitch menilai profil kredit {country} lebih kuat daripada hasil perhitungan mesin. Faktor pendukung biasanya meliputi:
-        
-        * **Kekuatan Sektor Perbankan (Structural):**
-            Sektor perbankan yang sangat kuat, termodalisasi dengan baik, dan risiko kewajiban kontinjensi (*Contingent Liabilities*) yang sangat rendah bagi pemerintah.
-        * **Fleksibilitas Pembiayaan (Public Finances):**
-            Akses pasar utang yang dalam (deep domestic bond market) sehingga negara tidak bergantung pada utang valas, mengurangi risiko volatilitas nilai tukar.
-        * **Kredibilitas Kebijakan (Macro):**
-            Rekam jejak bank sentral yang disiplin dalam menjaga inflasi dan stabilitas makroekonomi jangka panjang.
-        """)
-
-    elif qo_val < 0:
-        st.error(f"⚠️ **Penalti Risiko ({qo_val} Notch): Risiko Tersembunyi Terdeteksi**")
-        st.markdown(f"""
-        Komite Fitch menilai profil kredit {country} lebih lemah daripada hasil perhitungan mesin. Ada risiko kualitatif yang membebani rating:
-        
-        * **Risiko Politik & Tata Kelola (Structural):**
-            Ketidakpastian transisi kepemimpinan, polarisasi politik tinggi, atau risiko geopolitik yang dapat menghambat pembayaran utang.
-        * **Kewajiban Kontinjensi (Public Finances):**
-            Risiko utang tersembunyi dari BUMN (*State-Owned Enterprises*) atau sektor perbankan yang lemah yang sewaktu-waktu bisa menjadi beban anggaran negara (bailout risk).
-        * **Kualitas Data (Structural):**
-            Transparansi data fiskal atau cadangan devisa yang rendah dapat menyebabkan penalti rating karena ketidakpastian.
-        """)
-        
-    else:
-        st.info("⚖️ **Selaras (Neutral): Model & Komite Sepakat**")
-        st.markdown("Penilaian kualitatif Komite Rating Fitch sejalan dengan model matematika. Tidak ada distorsi struktural atau risiko tersembunyi yang signifikan.")
-
-    # Expander Edukasi
-    with st.expander("Tentang Qualitative Overlay (QO)"):
-        st.markdown("""
-        **QO (Qualitative Overlay)** adalah penyesuaian tahap akhir yang dilakukan oleh Komite Rating Fitch.
-        
-        Model SRM hanyalah angka awal. Komite dapat menambah atau mengurangi rating berdasarkan faktor yang sulit dikuantifikasi:
-        1.  **Structural Features:** Kualitas data, risiko politik, kedalaman sektor keuangan.
-        2.  **Macroeconomic Policy:** Kredibilitas target inflasi dan kebijakan fiskal.
-        3.  **Public Finances:** Struktur utang (valas vs lokal) dan risiko BUMN.
-        4.  **External Finances:** Dukungan donor bilateral/multilateral.
-        """)
-
-# --- 4. ENGINE CALCULATOR ---
 def calculate_single_score(raw_values, intercept, coeffs):
     score = intercept
     breakdown = {}
@@ -193,7 +147,69 @@ def calculate_single_score(raw_values, intercept, coeffs):
         breakdown[k] = contribution
     return score, breakdown
 
-# --- 5. UI DASHBOARD ---
+# --- FUNGSI RENDER QO (DI DALAM KOTAK RAPI) ---
+def render_qo_analysis(qo_val, country):
+    """Menampilkan analisis QO di dalam kotak berdesain khusus"""
+    
+    # Tentukan warna dan teks berdasarkan nilai QO
+    if qo_val > 0:
+        bg_color = "#d4edda"  # Hijau lembut
+        border_color = "#28a745"
+        text_color = "#155724"
+        title_text = f"Upgrade Kualitatif (+{qo_val} Notch): Fundamental Lebih Kuat dari Model"
+        content = f"""
+        Komite Rating Fitch menilai profil kredit <b>{country}</b> sebenarnya lebih kuat daripada yang dihasilkan oleh perhitungan model (SRM). Faktor pendukung utama biasanya meliputi:
+        <ul>
+            <li><b>Kekuatan Sektor Perbankan (Structural Features):</b> Sektor perbankan yang memiliki kapitalisasi kuat dan risiko rendah, sehingga meminimalkan risiko kewajiban kontinjensi bagi pemerintah.</li>
+            <li><b>Fleksibilitas Pembiayaan (Public Finances):</b> Keberadaan pasar obligasi domestik yang dalam dan likuid. Hal ini mengurangi ketergantungan negara pada utang valuta asing dan melindungi anggaran dari volatilitas nilai tukar.</li>
+            <li><b>Kredibilitas Kebijakan (Macroeconomic Policy):</b> Rekam jejak bank sentral yang disiplin dalam menjaga inflasi rendah dan stabilitas makroekonomi jangka panjang.</li>
+        </ul>
+        """
+    elif qo_val < 0:
+        bg_color = "#f8d7da"  # Merah lembut
+        border_color = "#dc3545"
+        text_color = "#721c24"
+        title_text = f"Penalti Risiko ({qo_val} Notch): Risiko Tersembunyi Terdeteksi"
+        content = f"""
+        Komite Rating Fitch menilai profil kredit <b>{country}</b> sebenarnya lebih lemah daripada hasil perhitungan model. Terdapat risiko kualitatif yang membebani rating:
+        <ul>
+            <li><b>Risiko Politik & Tata Kelola (Structural Features):</b> Ketidakpastian transisi kepemimpinan atau risiko geopolitik yang dapat menghambat kelancaran pembayaran utang.</li>
+            <li><b>Kewajiban Kontinjensi (Public Finances):</b> Risiko utang tersembunyi dari BUMN atau kelemahan sektor perbankan yang sewaktu-waktu dapat menjadi beban anggaran negara (risiko bailout).</li>
+            <li><b>Kualitas Data (Structural Features):</b> Transparansi data fiskal atau cadangan devisa yang rendah menyebabkan ketidakpastian dalam analisis.</li>
+        </ul>
+        """
+    else:
+        bg_color = "#e2e3e5"  # Abu-abu lembut
+        border_color = "#6c757d"
+        text_color = "#383d41"
+        title_text = "Selaras (Neutral): Model & Komite Sepakat"
+        content = f"Penilaian kualitatif Komite Rating Fitch untuk <b>{country}</b> sejalan dengan hasil model matematika SRM. Tidak ditemukan distorsi struktural yang memerlukan penyesuaian manual."
+
+    # Render Kotak menggunakan HTML
+    st.markdown(f"""
+        <div style="
+            background-color: {bg_color};
+            border: 1px solid {border_color};
+            border-left: 8px solid {border_color};
+            padding: 20px;
+            border-radius: 8px;
+            color: {text_color};
+            margin-bottom: 25px;
+            line-height: 1.6;
+        ">
+            <h4 style="margin-top: 0; color: {text_color}; font-weight: bold;">{title_text}</h4>
+            {content}
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Expander Edukasi tetap di bawah kotak
+    with st.expander("Tentang Qualitative Overlay (QO)"):
+        st.markdown("""
+        **QO (Qualitative Overlay)** adalah penyesuaian tahap akhir yang dilakukan oleh Komite Rating Fitch terhadap hasil model matematis. 
+        Komite dapat menambah atau mengurangi rating berdasarkan faktor kualitatif seperti stabilitas politik, kualitas data, dan fleksibilitas pembiayaan yang tidak tertangkap sepenuhnya oleh rumus mesin.
+        """)
+
+# --- 4. UI DASHBOARD ---
 st.set_page_config(page_title="Sovereign Credit Watch", layout="wide", page_icon="🌍")
 
 with st.sidebar:
@@ -203,18 +219,127 @@ with st.sidebar:
     COEFFICIENTS = ACTIVE_PARAMS['coeffs']
     INTERCEPT = ACTIVE_PARAMS['intercept']
 
-st.title("🌍 Sovereign Credit Watch")
+# Judul dengan Class CSS khusus untuk kontrol jarak
+st.markdown('<div class="main-title"><h1>🌍 Sovereign Credit Watch</h1></div>', unsafe_allow_html=True)
 
-# --- TAMBAHAN DESKRIPSI ---
+# Deskripsi Dashboard
 st.markdown("""
-> **Metodologi:** Dashboard ini mengadopsi logika **Fitch Sovereign Rating Model (SRM)**.
-> Skor dihitung berdasarkan 18 indikator kuantitatif (Struktural, Makroekonomi, Fiskal, dan Eksternal) untuk memproyeksikan kelayakan kredit negara (Sovereign Rating) sesuai kriteria Fitch Ratings.
-""")
+<div class="description-box">
+    Platform analitik berbasis data yang merujuk pada <b>Fitch Sovereign Rating Model (SRM)</b>. 
+    Gunakan dashboard ini untuk memantau indikator makro-fiskal, menganalisis Qualitative Overlay (QO), 
+    dan melakukan simulasi dampak kebijakan terhadap rating kredit negara secara presisi.
+</div>
+""", unsafe_allow_html=True)
+
+st.divider()
+
+# --- CSS KHUSUS (TABS & FILE UPLOADER) ---
+# --- FULL CSS CONFIGURATION ---
+st.markdown("""
+<style>
+    /* 1. Spasi di bawah Judul Utama */
+    .main-title {
+        margin-bottom: 40px !important;
+        padding-bottom: 4px;
+    }
+
+    /* 2. Memperbesar Font Judul Tabs & Efek Highlight pada Tab Aktif */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 15px; /* Jarak antar tab diperlebar */
+        background-color: #f0f2f6; 
+        padding: 10px;
+        border-radius: 15px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        /* Hapus height statis agar padding bisa bekerja */
+        height: auto !important; 
+        padding: 6px 20px !important; /* Jarak atas-bawah dan kiri-kanan */
+        border-radius: 12px !important;
+        background-color: transparent;
+        transition: all 0.3s ease;
+        border-bottom: 4px solid transparent !important; /* Border transparan agar layout tidak loncat saat aktif */
+    }
+
+    /* Efek untuk Tab yang Sedang Dipilih (Aktif) */
+    .stTabs [aria-selected="true"] {
+        background-color: white !important;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.1) !important; 
+        border-bottom: 4px solid #1E3A8A !important; /* Garis bawah lebih tegas */
+        transform: translateY(-1px); /* Sedikit lebih tinggi */
+    }
+
+    /* Memastikan teks memiliki jarak yang cukup dari border */
+    .stTabs [data-baseweb="tab"] p {
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        color: #1E3A8A !important;
+        margin: 0 !important; /* Hapus margin bawaan p */
+        padding-bottom: 4px; /* Jarak tambahan antara teks dan garis bawah */
+    }
+    /* 3. Memperbesar Label File Uploader */
+    /* Memperbesar dan mengubah warna label File Uploader menjadi Hitam */
+    [data-testid="stFileUploader"] label p {
+        font-size: 1.2rem !important; /* Ukuran disesuaikan agar tidak terlalu raksasa */
+        font-weight: 800 !important;
+        color: #000000 !important;   /* Mengubah warna menjadi HITAM PEKAT */
+        padding-bottom: 5px !important;
+    }
+
+    /* Mengubah warna teks instruksi kecil di bawah tombol browse */
+    [data-testid="stFileUploader"] section div div {
+        color: #333333 !important;
+    }
+            
+
+    /* 4. Memperbesar Label Pilih Negara */
+    [data-testid="stSelectbox"] label p {
+        font-size: 1.2rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* 5. Custom styling untuk box deskripsi dashboard */
+    .description-box {
+        background-color: #f8f9fa;
+        padding: 25px;
+        border-radius: 20px;
+        border-left: 8px solid #1E3A8A;
+        margin-top: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    /* 6. Font Tabel Peer */
+    [data-testid="stDataFrame"] {
+        font-size: 0.9rem !important;
+    }
+
+    /* 7. Penyesuaian Subheader */
+    h2, h3 {
+        font-size: 1.2rem !important;
+        font-weight: 700 !important;
+        color: #333 !important;
+    }
+            
+    /* Style untuk Running Text */
+    .rating-marquee {
+        background-color: #1E3A8A;
+        color: white;
+        padding: 10px 0;
+        font-family: 'Arial', sans-serif;
+        font-weight: bold;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }
+</style>
+""", unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader("Unggah file Fitch Comparator (.xlsx / .xlsb)", type=['xlsx', 'xlsb'])
 
 if uploaded_file:
     try:
+        # Load Excel
         file_ext = uploaded_file.name.split('.')[-1].lower()
         engine = 'pyxlsb' if file_ext == 'xlsb' else None 
         if file_ext == 'xlsb':
@@ -245,6 +370,7 @@ if uploaded_file:
         total_gdp = pd.to_numeric(df.iloc[11:, C['gdp']], errors='coerce').sum()
         results = []
 
+        # Data Loop
         for i in range(11, len(df)):
             r = df.iloc[i]
             if pd.isna(r[C['country']]): continue
@@ -266,9 +392,11 @@ if uploaded_file:
                 raw['gg_debt'] = safe_float(r[C['debt']])
                 raw['int_rev'] = safe_float(r[C['int_rev']])
                 raw['fiscal_bal'] = safe_float(r[C['bal']])
+                
                 total_debt_val = safe_float(r[C['debt']])
                 lc_debt_val = safe_float(r[C['debt_lc']])
                 raw['fc_debt'] = ((total_debt_val - lc_debt_val) / total_debt_val * 100) if total_debt_val > 0 else 0.0
+                
                 rc = safe_float(r[C['res_curr']])
                 raw['rc_flex'] = max(1.0, min(4.6, rc)) if rc > 0 else 0.0
                 raw['snfa'] = safe_float(r[C['snfa']])
@@ -292,21 +420,43 @@ if uploaded_file:
                 results.append({
                     'Country': country, 'SRM Score': score, 'Pred Rating': rating_str, 'Actual Rating': actual_str,
                     'Pred Rating Num': rating_int, 'Actual Rating Num': actual_int, 'QO': qo, 
-                    'HDI': safe_float(r[C['hdi']]), 
-                    'GDP Nominal': raw_gdp_val,
-                    'Raw': raw
+                    'HDI': safe_float(r[C['hdi']]), 'GDP Nominal': raw_gdp_val, 'Raw': raw
                 })
             except: continue
 
         full_df = pd.DataFrame(results)
-        tab1, tab2, tab3 = st.tabs(["📊 Analisis Negara", "💡 Metodologi", "🧪 Simulasi Kebijakan"])
+        period = extract_period_from_filename(uploaded_file.name)
+        st.markdown(f"### Berdasarkan Data Fitch per **{period}**")
 
-        # --- TAB 1: ANALISIS NEGARA ---
+        # --- KODE RUNNING TEXT (MARQUEE) ---
+        if 'full_df' in locals() or 'full_df' in globals():
+            # Mengambil daftar negara dan rating aktual
+            # Pastikan nama kolom sesuai dengan dataframe Anda ('Country' dan 'Actual Rating')
+            marquee_data = full_df[['Country', 'Actual Rating']].dropna()
+            
+            # Menyusun teks: "INDONESIA (BBB)  |  MALAYSIA (BBB+)  |  ..."
+            marquee_content = " &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; ".join(
+                [f"{row['Country'].upper()}: {row['Actual Rating']}" for _, row in marquee_data.iterrows()]
+            )
+
+            # Render Marquee
+            st.markdown(f"""
+                <div class="rating-marquee">
+                    <marquee behavior="scroll" direction="left" scrollamount="6">
+                        {marquee_content}
+                    </marquee>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # --- TAB INIT ---
+        tab1, tab2, tab3 = st.tabs(["Analisis Negara", "Metodologi", "Simulasi Kebijakan"])
+
+        # --- GLOBAL SELECTOR (Tab 1 Only) ---
         with tab1:
-            sel = st.selectbox("Pilih Negara", full_df['Country'].unique(), index=list(full_df['Country']).index('Indonesia') if 'Indonesia' in full_df['Country'].values else 0)
+            sel = st.selectbox("Pilih Negara:", full_df['Country'].unique(), index=list(full_df['Country']).index('Indonesia') if 'Indonesia' in full_df['Country'].values else 0)
             res = full_df[full_df['Country'] == sel].iloc[0]
 
-            st.divider()
+            
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("SRM Score", f"{res['SRM Score']:.2f}")
             c2.metric("Prediksi Model", res['Pred Rating'])
@@ -314,14 +464,12 @@ if uploaded_file:
             c4.metric("QO (Kualitatif)", f"{int(res['QO']):+} Notch", delta=int(res['QO']))
             
             st.caption(f"ℹ️ **Human Development Index (HDI):** {res['HDI']:.3f}")
-
             render_qo_analysis(int(res['QO']), sel)
 
             col_heat, col_chart = st.columns([1.2, 1]) 
             with col_heat:
                 st.subheader(f"Perbandingan vs Peer ({res['Pred Rating']})")
                 peers = full_df[full_df['Pred Rating'] == res['Pred Rating']]
-                means = peers.mean(numeric_only=True) if not peers.empty else res['Raw']
                 hm_rows = []
                 for k in COEFFICIENTS.keys():
                     val = res['Raw'][k]
@@ -343,8 +491,7 @@ if uploaded_file:
                 st.plotly_chart(fig_bar, use_container_width=True)
 
             st.divider()
-            st.header("🌐 Peta Kuadran Rating Global")
-            
+            st.subheader("🌐 Peta Kuadran Rating Global")
             plot_df = full_df.dropna(subset=['Actual Rating Num', 'Pred Rating Num']).copy()
             def get_status(row):
                 if row['Country'] == sel: return "📍 NEGARA TERPILIH"
@@ -352,14 +499,12 @@ if uploaded_file:
                 if diff > 0: return 'Underrated (QO+)'
                 elif diff < 0: return 'Overrated (QO-)'
                 return 'Aligned'
-                
             plot_df['Status'] = plot_df.apply(get_status, axis=1)
             plot_df['GDP Size'] = plot_df['GDP Nominal'].fillna(0) + 10
             
             fig_bubble = px.scatter(plot_df, x="Actual Rating Num", y="Pred Rating Num", size="GDP Size", color="Status",
                              hover_name="Country", color_discrete_map={'📍 NEGARA TERPILIH': '#FFD700', 'Underrated (QO+)': '#2ecc71', 'Overrated (QO-)': '#e74c3c', 'Aligned': '#3498db'}, size_max=60)
             fig_bubble.add_shape(type="line", x0=0, y0=0, x1=16, y1=16, line=dict(color="Gray", width=2, dash="dash"))
-            
             tick_vals = list(range(0, 17))
             tick_text = [NUM_TO_RATING.get(i, '') for i in tick_vals]
             fig_bubble.update_layout(height=700, xaxis=dict(tickmode='array', tickvals=tick_vals, ticktext=tick_text, title="Rating Aktual"),
@@ -371,111 +516,185 @@ if uploaded_file:
             st.subheader("Parameter Indikator")
             method_data = []
             for k, coef in COEFFICIENTS.items():
-                det = INDICATOR_META[k]
+                meta = INDICATOR_META[k]
                 method_data.append({
-                    'Nama Indikator': det['Name'],
-                    'Bobot (Coef)': coef,
-                    'Satuan': det['Unit'],
-                    'Kategori': det['Type'],
-                    'Transformasi': det['Trans']
+                    'Kode': k, 'Indikator': meta['Name'], 'Kategori': meta['Type'], 'Satuan': meta['Unit'], 'Koefisien': coef, 'Transformasi': meta['Trans']
                 })
-            st.dataframe(pd.DataFrame(method_data), use_container_width=True, height=700)
+            st.dataframe(pd.DataFrame(method_data), use_container_width=True, height=600)
 
-        # --- TAB 3: SIMULASI KEBIJAKAN ---
+        # --- TAB 3: SIMULASI KEBIJAKAN (FIXED) ---
         with tab3:
-            st.header(f"🧪 Simulasi Kebijakan: {sel}")
+            st.subheader(f"Simulasi Kebijakan untuk Negara: {sel}")
+            st.caption("Data awal diambil otomatis dari tab 'Analisis Negara'.")
             
-            # A. PDF READER
-            st.markdown("### 1. Deteksi Sensitivitas (Upload Fitch RAC PDF)")
-            uploaded_pdf = st.file_uploader("Upload Report Fitch (PDF)", type="pdf")
+            # 1. UPLOAD PDF FITCH
+            pdf_file = st.file_uploader("Upload Fitch Report (PDF) untuk deteksi sensitivitas", type=['pdf'])
+            
             active_constraints = {}
-            
-            if uploaded_pdf:
-                with st.spinner("Menganalisis Dokumen..."):
-                    sensitivities_text = parse_fitch_report(uploaded_pdf)
-                    active_constraints = map_sensitivities_to_indicators(sensitivities_text)
-                
+            if pdf_file and PdfReader:
+                sensitivities = parse_fitch_report(pdf_file)
+                active_constraints = map_sensitivities_to_indicators(sensitivities)
                 if active_constraints:
-                    st.success(f"Ditemukan {len(active_constraints)} Indikator Sensitif dari dokumen!")
-                    with st.expander("Lihat Detail Sensitivitas"):
-                        for code, data in active_constraints.items():
-                            direction = ", ".join(set(data['direction']))
-                            st.markdown(f"**{INDICATOR_META[code]['Name']}** ({direction}):")
-                            for txt in data['text']: st.caption(f"- \"{txt}\"")
-                else:
-                    st.warning("Tidak ditemukan bagian 'Rating Sensitivities' yang valid.")
+                    st.success(f"PDF Terbaca! Ditemukan {len(active_constraints)} indikator sensitif.")
+            
+            # 2. INPUT PARAMETER EKONOMI
+            base_raw = res['Raw']
+            custom_values = {} # Dictionary untuk menyimpan nilai simulasi baru
+            sim_cols = st.columns(3)
+            
+            for idx, var_code in enumerate(COEFFICIENTS.keys()):
+                meta = INDICATOR_META[var_code]
+                default_val = safe_float(base_raw.get(var_code, 0))
+                
+                # Cek Warning/Opportunity dari PDF
+                label_extra = ""
+                help_text = ""
+                if var_code in active_constraints:
+                    dirs = active_constraints[var_code]['direction']
+                    if 'Negative' in dirs: 
+                        label_extra += " 📉 (Risk)"
+                        help_text += f"⚠️ RISIKO: {active_constraints[var_code]['text'][0][:150]}..."
+                    if 'Positive' in dirs: 
+                        label_extra += " 📈 (Upside)"
+                        help_text += f"🌟 PELUANG: {active_constraints[var_code]['text'][0][:150]}..."
 
+                step = 0.1
+                with sim_cols[idx % 3]:
+                    # Input Manual
+                    new_val = st.number_input(
+                        f"{meta['Name']} ({meta['Unit']}){label_extra}", 
+                        value=float(default_val), 
+                        step=step, 
+                        key=f"sim_{var_code}",
+                        help=help_text if help_text else f"Bobot Model: {COEFFICIENTS[var_code]}"
+                    )
+                    custom_values[var_code] = new_val # Simpan ke custom_values
+            
+            # 3. ANALISIS RISIKO (MENGGUNAKAN custom_values)
+            if active_constraints:
+                st.divider()
+                st.subheader("🛡️ Monitor Sensitivitas Rating")
+                
+                # Mapping Arah Risiko: 1 = Bahaya jika NAIK, -1 = Bahaya jika TURUN
+                RISK_DIRECTION = {
+                    'wgi': -1, 'gdp_pc': -1, 'world_gdp_share': -1, 'default_record': -1, 
+                    'money_supply': -1, 'gdp_volatility': 1, 'inflation': 1, 'real_growth': -1, 
+                    'gg_debt': 1, 'int_rev': 1, 'fiscal_bal': -1, 'fc_debt': 1, 
+                    'rc_flex': -1, 'snfa': -1, 'commodity_dep': 1, 'reserves_months': -1, 
+                    'ext_int_service': 1, 'ca_fdi': -1
+                }
+
+                found_risk = False
+                
+                for code, data in active_constraints.items():
+                    if 'Negative' in data['direction']:
+                        current_sim_val = float(custom_values.get(code, 0))
+                        base_val = float(base_raw.get(code, 0))
+                        meta = INDICATOR_META[code]
+                        direction_rule = RISK_DIRECTION.get(code, 0)
+                        
+                        is_worsening = False
+                        
+                        # Logika Deteksi
+                        if direction_rule == 1 and current_sim_val > base_val: is_worsening = True
+                        elif direction_rule == -1 and current_sim_val < base_val: is_worsening = True
+                        
+                        if is_worsening:
+                            found_risk = True
+                            delta = current_sim_val - base_val
+                            arrow = "⬆️ Naik" if delta > 0 else "⬇️ Turun"
+                            
+                            st.error(
+                                f"🚨 **PERINGATAN RISIKO:** Simulasi Anda membuat **{meta['Name']}** {arrow} "
+                                f"({base_val:.2f} → {current_sim_val:.2f})."
+                            )
+                            with st.chat_message("user", avatar="📄"):
+                                st.write(f"**Kutipan Laporan Fitch:**")
+                                for t in data['text']: st.caption(f"\"...{t}...\"")
+                
+                # Cek apakah ada perubahan nilai sama sekali
+                has_changes = any(custom_values[k] != base_raw[k] for k in custom_values)
+
+                if not found_risk:
+                    if has_changes:
+                        # Jika sudah ada perubahan tapi aman
+                        st.success("✅ **Simulasi Aman:** Perubahan yang Anda lakukan tidak melanggar batas sensitivitas negatif yang terdeteksi di dokumen Fitch.")
+                    else:
+                        # Jika belum ada perubahan sama sekali (Default State)
+                        st.info("ℹ️ **Menunggu Simulasi:** Silakan ubah angka pada input di atas. Sistem akan otomatis memperingatkan jika perubahan Anda berlawanan dengan *guidance* Fitch.")
+
+            # 4. HASIL KALKULASI AKHIR
             st.divider()
             
-            # B. SLIDERS
-            st.markdown("### 2. Atur Parameter Ekonomi")
-            base_raw = res['Raw'].copy()
-            sim_raw = {}
+            # Hitung skor baru
+            # Gunakan custom_values jika ada, jika tidak (fallback) pakai base_raw
+            final_vals = custom_values if custom_values else base_raw
+            new_score, _ = calculate_single_score(final_vals, INTERCEPT, COEFFICIENTS)
             
-            def get_label(code):
-                base_label = f"{INDICATOR_META[code]['Name']} (Bobot: {COEFFICIENTS[code]})"
-                if code in active_constraints:
-                    dirs = active_constraints[code]['direction']
-                    if 'Negative' in dirs: return f"⚠️ {base_label} [SENSITIVE]"
-                    if 'Positive' in dirs: return f"🌟 {base_label} [OPPORTUNITY]"
-                return base_label
-
-            c_sim1, c_sim2 = st.columns(2)
-            with c_sim1:
-                st.subheader("Fiskal & Makro")
-                sim_raw['gg_debt'] = st.slider(get_label('gg_debt'), 0.0, 150.0, base_raw['gg_debt'], 0.5)
-                sim_raw['fiscal_bal'] = st.slider(get_label('fiscal_bal'), -15.0, 5.0, base_raw['fiscal_bal'], 0.1)
-                sim_raw['int_rev'] = st.slider(get_label('int_rev'), 0.0, 60.0, base_raw['int_rev'], 0.5)
-                sim_raw['inflation'] = st.slider(get_label('inflation'), 0.0, 30.0, base_raw['inflation'], 0.1)
-                sim_raw['real_growth'] = st.slider(get_label('real_growth'), -5.0, 10.0, base_raw['real_growth'], 0.1)
-                sim_raw['gdp_volatility'] = st.slider(get_label('gdp_volatility'), 0.8, 10.0, base_raw['gdp_volatility'], 0.1)
+            # Logic Cap EM
+            if final_vals.get('rc_flex', 0) < 1.0 and new_score > 12.5: 
+                new_score = 12.0
                 
-            with c_sim2:
-                st.subheader("Eksternal & Struktural")
-                sim_raw['reserves_months'] = st.slider(get_label('reserves_months'), 0.0, 20.0, base_raw['reserves_months'], 0.1)
-                sim_raw['fc_debt'] = st.slider(get_label('fc_debt'), 0.0, 100.0, base_raw['fc_debt'], 1.0)
-                sim_raw['ca_fdi'] = st.slider(get_label('ca_fdi'), -10.0, 10.0, base_raw['ca_fdi'], 0.1)
-                sim_raw['ext_int_service'] = st.slider(get_label('ext_int_service'), 0.0, 20.0, base_raw['ext_int_service'], 0.1)
-                sim_raw['wgi'] = st.slider(get_label('wgi'), 0.0, 100.0, base_raw['wgi'], 0.5)
-                
-                # Hidden sliders
-                for k in base_raw:
-                    if k not in sim_raw: sim_raw[k] = base_raw[k]
-
-            # C. WARNING SYSTEM & CALCULATION
-            alerts = []
-            if 'gg_debt' in active_constraints and 'Negative' in active_constraints['gg_debt']['direction']:
-                if sim_raw['gg_debt'] > base_raw['gg_debt'] + 2.0:
-                    alerts.append(f"⚠️ **PERINGATAN:** Fitch memperingatkan kenaikan Utang Pemerintah.")
-            
-            if 'reserves_months' in active_constraints and 'Negative' in active_constraints['reserves_months']['direction']:
-                 if sim_raw['reserves_months'] < base_raw['reserves_months'] - 1.0:
-                    alerts.append(f"⚠️ **PERINGATAN:** Fitch memperingatkan penurunan Cadangan Devisa.")
-
-            for alert in alerts: st.error(alert)
-
-            new_score, _ = calculate_single_score(sim_raw, INTERCEPT, COEFFICIENTS)
-            if sim_raw['rc_flex'] < 1.0 and new_score > 12.5: new_score = 12.0
-            
-            delta = new_score - res['SRM Score']
             new_rating_int = int(round(max(0, min(16, new_score))))
             new_rating_str = NUM_TO_RATING.get(new_rating_int, 'D')
-
-            st.divider()
-            c_res1, c_res2 = st.columns([1, 2])
-            with c_res1:
-                st.metric("Skor Simulasi", f"{new_score:.2f}", f"{delta:+.2f}")
-                st.metric("Estimasi Rating", new_rating_str)
             
-            with c_res2:
+            # Layout Kolom: Metrics di kiri, Gauge di kanan
+            # Rasio 1.3 untuk gauge agar container lebih sempit & memaksa center
+            c_sim1, c_sim2, c_sim3 = st.columns([1, 1, 1.3])
+            
+            with c_sim1:
+                st.markdown("##### Skor Baru")
+                st.metric(
+                    label="SRM Score", 
+                    value=f"{new_score:.2f}", 
+                    delta=f"{new_score - res['SRM Score']:.2f}",
+                    label_visibility="collapsed"
+                )
+            
+            with c_sim2:
+                st.markdown("##### Rating Baru")
+                st.metric(
+                    label="Rating", 
+                    value=new_rating_str, 
+                    delta=f"{new_rating_int - res['Pred Rating Num']} Notch",
+                    label_visibility="collapsed"
+                )
+            
+            with c_sim3:
+                # Gauge Chart
                 fig_gauge = go.Figure(go.Indicator(
-                    mode = "gauge+number+delta", value = new_score,
-                    delta = {'reference': res['SRM Score']},
-                    gauge = {'axis': {'range': [0, 16]}, 'bar': {'color': "darkblue"},
-                             'steps': [{'range': [0, 9], 'color': '#ffcccb'}, {'range': [9, 16], 'color': '#90ee90'}]}
+                    mode = "gauge+number+delta", 
+                    value = new_score,
+                    delta = {'reference': res['SRM Score'], 'position': "bottom", 'relative': False},
+                    number = {'font': {'size': 24, 'color': "black", 'family': "Arial"}}, # Font lebih kecil (24px)
+                    gauge = {
+                        'axis': {'range': [0, 16], 'tickwidth': 1, 'tickcolor': "gray"},
+                        'bar': {'color': "#2E86C1", 'thickness': 0.8}, 
+                        'bgcolor': "white",
+                        'borderwidth': 1,
+                        'bordercolor': "#cccccc",
+                        'steps': [
+                            {'range': [0, 9], 'color': '#ffcccb'}, # Non-Investment Grade
+                            {'range': [9, 16], 'color': '#d4edda'} # Investment Grade
+                        ],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 3},
+                            'thickness': 0.8,
+                            'value': new_score
+                        }
+                    }
                 ))
-                fig_gauge.update_layout(height=250)
+                
+                # PERBAIKAN LAYOUT: Margin Simetris & Height Compact
+                fig_gauge.update_layout(
+                    height=170, 
+                    margin=dict(l=35, r=35, t=40, b=10), # Kiri-Kanan seimbang (35px)
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font={'family': "Arial", 'color': "black"}
+                )
                 st.plotly_chart(fig_gauge, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Terjadi kesalahan aplikasi: {e}")
+        st.error(f"Error: {e}")
+else:
+    st.info("👋 Silakan unggah file Excel untuk memulai.")
