@@ -410,7 +410,7 @@ with col_radio:
 with col_logout:
     # Tampilkan tombol logout hanya jika sudah terautentikasi
     if st.session_state.get('authenticated', False):
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("⏻ Logout", use_container_width=True):
             st.session_state.authenticated = False
             st.rerun()
 
@@ -434,7 +434,7 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
             passcode_input = st.text_input(
                 "Masukkan Passcode:", 
                 type="password",
-                placeholder="Contoh: Dspp2026#"
+                placeholder="Contoh: Google12345!"
             )
             submit = st.form_submit_button("🔓 Verifikasi & Akses Database")
             
