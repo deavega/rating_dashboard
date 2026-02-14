@@ -4,13 +4,55 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import re
+import gdown
+import json
 from io import BytesIO
+
 
 # Coba import pypdf
 try:
     from pypdf import PdfReader
 except ImportError:
     PdfReader = None
+
+# --- SECURITY CONFIG ---
+def verify_passcode(input_code):
+    """Verifikasi passcode dari Streamlit Secrets"""
+    try:
+        correct_code = st.secrets["passwords"]["database_passcode"]
+        return input_code == correct_code
+    except:
+        st.error("⚠️ Konfigurasi keamanan tidak ditemukan!")
+        return False
+
+def load_database():
+    """Load database dari Google Drive"""
+    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
+        return None
+    
+    try:
+        # Ambil kredensial dari secrets
+        file_id = st.secrets["database"]["file_id"]
+        
+        # Download sementara (tidak tersimpan permanen)
+        url = f"https://drive.google.com/uc?id={file_id}"
+        output = "temp_database.xlsx"
+        
+        gdown.download(url, output, quiet=True)
+        
+        # Load seperti biasa
+        xl = pd.ExcelFile(output)
+        sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
+        df = pd.read_excel(output, sheet_name=sheet_name, header=None)
+        
+        # Hapus file temporary
+        import os
+        os.remove(output)
+        
+        return df
+    except Exception as e:
+        st.error(f"⚠️ Gagal akses database: {e}")
+        return None
 
 # --- 1. KONFIGURASI & METADATA ---
 
@@ -335,20 +377,80 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Unggah file Fitch Comparator (.xlsx / .xlsb)", type=['xlsx', 'xlsb'])
+# --- OPSI AKSES DATA ---
+st.markdown("### 📂 Pilih Sumber Data")
 
-if uploaded_file:
+data_source = st.radio(
+    "Pilih metode akses data:",
+    ["Upload File Manual", "🔒 Akses Database Terkini (Perlu Passcode)"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+uploaded_file = None
+df = None
+
+if data_source == "Upload File Manual":
+    uploaded_file = st.file_uploader(
+        "Unggah file Fitch Comparator (.xlsx / .xlsb)", 
+        type=['xlsx', 'xlsb']
+    )
+    
+elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
+    # Cek apakah sudah login
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if not st.session_state.authenticated:
+        with st.form("passcode_form"):
+            st.warning("🔐 Akses Terbatas: Database hanya untuk pengguna terotorisasi")
+            passcode_input = st.text_input(
+                "Masukkan Passcode:", 
+                type="password",
+                placeholder="Contoh: Dspp2026#"
+            )
+            submit = st.form_submit_button("🔓 Verifikasi & Akses Database")
+            
+            if submit:
+                if verify_passcode(passcode_input):
+                    st.session_state.authenticated = True
+                    st.success("✅ Autentikasi berhasil! Memuat database...")
+                    st.rerun()
+                else:
+                    st.error("❌ Passcode salah! Akses ditolak.")
+    else:
+        # Jika sudah login, load database
+        st.success("✅ Terautentikasi | Database Terkini Aktif")
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("🚪 Logout"):
+                st.session_state.authenticated = False
+                st.rerun()
+        
+        df = load_database()
+        if df is None:
+            st.stop()
+
+# --- PROSES DATA (Gabungkan logika upload & database) ---
+if uploaded_file or df is not None:
     try:
-        # Load Excel
-        file_ext = uploaded_file.name.split('.')[-1].lower()
-        engine = 'pyxlsb' if file_ext == 'xlsb' else None 
-        if file_ext == 'xlsb':
-            try: df = pd.read_excel(uploaded_file, sheet_name='Data', header=None, engine=engine)
-            except: df = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine=engine)
+        # Jika dari upload, load seperti biasa
+        if uploaded_file:
+            file_ext = uploaded_file.name.split('.')[-1].lower()
+            engine = 'pyxlsb' if file_ext == 'xlsb' else None 
+            if file_ext == 'xlsb':
+                try: df = pd.read_excel(uploaded_file, sheet_name='Data', header=None, engine=engine)
+                except: df = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine=engine)
+            else:
+                xl = pd.ExcelFile(uploaded_file)
+                sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
+                df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
+            period = extract_period_from_filename(uploaded_file.name)
         else:
-            xl = pd.ExcelFile(uploaded_file)
-            sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
-            df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
+            # Jika dari database, ambil periode dari metadata (atau set manual)
+            period = "Database Terkini (Live Data)"
+
+    
 
         # Mapping Columns
         C = {
@@ -370,16 +472,26 @@ if uploaded_file:
         total_gdp = pd.to_numeric(df.iloc[11:, C['gdp']], errors='coerce').sum()
         results = []
 
-        # Data Loop
+        # --- DATA LOOP (DIPERBAIKI) ---
         for i in range(11, len(df)):
             r = df.iloc[i]
             if pd.isna(r[C['country']]): continue
             country = str(r[C['country']]).strip()
+            
+            # -----------------------------------------------------------
+            # FILTER BARU: Skip jika nama negara mengandung "[Median]"
+            # -----------------------------------------------------------
+            if "[Median]" in country: 
+                continue 
+
             try:
                 # Raw Extraction
                 raw = {}
                 raw['wgi'] = min(safe_float(r[C['wgi']]), 100.0)
                 raw_gni = safe_float(r[C['gdp_pc']])
+                
+                # ... (Lanjutkan sisa logika ekstraksi seperti sebelumnya) ...
+                
                 raw['gdp_pc'] = (raw_gni / 76000 * 100) if raw_gni > 500 else min(raw_gni, 100.0)
                 raw_gdp_val = safe_float(r[C['gdp']])
                 raw['world_gdp_share'] = (raw_gdp_val / total_gdp * 100) if raw_gdp_val > 0 else 0.001
@@ -425,6 +537,8 @@ if uploaded_file:
             except: continue
 
         full_df = pd.DataFrame(results)
+
+        full_df = pd.DataFrame(results)
         period = extract_period_from_filename(uploaded_file.name)
         st.markdown(f"### Berdasarkan Data Fitch per **{period}**")
 
@@ -449,7 +563,7 @@ if uploaded_file:
             """, unsafe_allow_html=True)
 
         # --- TAB INIT ---
-        tab1, tab2, tab3 = st.tabs(["Analisis Negara", "Metodologi", "Simulasi Kebijakan"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Analisis Negara", "Metodologi", "Simulasi Kebijakan", "Komparasi Indikator"])
 
         # --- GLOBAL SELECTOR (Tab 1 Only) ---
         with tab1:
@@ -523,21 +637,23 @@ if uploaded_file:
             st.dataframe(pd.DataFrame(method_data), use_container_width=True, height=600)
 
         # --- TAB 3: SIMULASI KEBIJAKAN (FIXED) ---
+        # --- TAB 3: SIMULASI KEBIJAKAN (FIXED & DYNAMIC) ---
         with tab3:
             st.subheader(f"Simulasi Kebijakan untuk Negara: {sel}")
-            st.caption("Data awal diambil otomatis dari tab 'Analisis Negara'.")
+            st.caption(f"Data awal indikator disesuaikan otomatis berdasarkan profil terkini: **{sel}**.")
             
             # 1. UPLOAD PDF FITCH
             pdf_file = st.file_uploader("Upload Fitch Report (PDF) untuk deteksi sensitivitas", type=['pdf'])
             
             active_constraints = {}
-            if pdf_file and PdfReader:
+            if pdf_file and 'PdfReader' in locals():
                 sensitivities = parse_fitch_report(pdf_file)
                 active_constraints = map_sensitivities_to_indicators(sensitivities)
                 if active_constraints:
                     st.success(f"PDF Terbaca! Ditemukan {len(active_constraints)} indikator sensitif.")
             
             # 2. INPUT PARAMETER EKONOMI
+            # base_raw mengambil data 'res' yang sudah terfilter dinamis di Tab 1
             base_raw = res['Raw']
             custom_values = {} # Dictionary untuk menyimpan nilai simulasi baru
             sim_cols = st.columns(3)
@@ -560,12 +676,12 @@ if uploaded_file:
 
                 step = 0.1
                 with sim_cols[idx % 3]:
-                    # Input Manual
+                    # FIX: Menambahkan {sel} pada key agar otomatis reset saat ganti negara
                     new_val = st.number_input(
                         f"{meta['Name']} ({meta['Unit']}){label_extra}", 
                         value=float(default_val), 
                         step=step, 
-                        key=f"sim_{var_code}",
+                        key=f"sim_{sel}_{var_code}",
                         help=help_text if help_text else f"Bobot Model: {COEFFICIENTS[var_code]}"
                     )
                     custom_values[var_code] = new_val # Simpan ke custom_values
@@ -627,7 +743,6 @@ if uploaded_file:
             st.divider()
             
             # Hitung skor baru
-            # Gunakan custom_values jika ada, jika tidak (fallback) pakai base_raw
             final_vals = custom_values if custom_values else base_raw
             new_score, _ = calculate_single_score(final_vals, INTERCEPT, COEFFICIENTS)
             
@@ -639,7 +754,6 @@ if uploaded_file:
             new_rating_str = NUM_TO_RATING.get(new_rating_int, 'D')
             
             # Layout Kolom: Metrics di kiri, Gauge di kanan
-            # Rasio 1.3 untuk gauge agar container lebih sempit & memaksa center
             c_sim1, c_sim2, c_sim3 = st.columns([1, 1, 1.3])
             
             with c_sim1:
@@ -666,7 +780,7 @@ if uploaded_file:
                     mode = "gauge+number+delta", 
                     value = new_score,
                     delta = {'reference': res['SRM Score'], 'position': "bottom", 'relative': False},
-                    number = {'font': {'size': 24, 'color': "black", 'family': "Arial"}}, # Font lebih kecil (24px)
+                    number = {'font': {'size': 24, 'color': "black", 'family': "Arial"}}, 
                     gauge = {
                         'axis': {'range': [0, 16], 'tickwidth': 1, 'tickcolor': "gray"},
                         'bar': {'color': "#2E86C1", 'thickness': 0.8}, 
@@ -674,8 +788,8 @@ if uploaded_file:
                         'borderwidth': 1,
                         'bordercolor': "#cccccc",
                         'steps': [
-                            {'range': [0, 9], 'color': '#ffcccb'}, # Non-Investment Grade
-                            {'range': [9, 16], 'color': '#d4edda'} # Investment Grade
+                            {'range': [0, 9], 'color': '#ffcccb'}, 
+                            {'range': [9, 16], 'color': '#d4edda'} 
                         ],
                         'threshold': {
                             'line': {'color': "red", 'width': 3},
@@ -685,14 +799,93 @@ if uploaded_file:
                     }
                 ))
                 
-                # PERBAIKAN LAYOUT: Margin Simetris & Height Compact
                 fig_gauge.update_layout(
                     height=170, 
-                    margin=dict(l=35, r=35, t=40, b=10), # Kiri-Kanan seimbang (35px)
+                    margin=dict(l=35, r=35, t=40, b=10), 
                     paper_bgcolor="rgba(0,0,0,0)",
                     font={'family': "Arial", 'color': "black"}
                 )
                 st.plotly_chart(fig_gauge, use_container_width=True)
+
+        with tab4:
+            st.subheader("Komparasi Indikator: Benchmarking")
+            
+            # 1. Filter Negara Pembanding
+            available_peers = [p for p in full_df['Country'].unique() if p != sel]
+            
+            selected_peers = st.multiselect(
+                f"Bandingkan {sel} dengan (Pilih hingga 5 negara):", 
+                options=sorted(available_peers), 
+                max_selections=5,
+                key="peer_comp_universal_key"
+            )
+
+            if selected_peers:
+                all_selected = [sel] + selected_peers
+                comp_rows = []
+                
+                # 2. Ambil data dari full_df yang sudah diproses
+                for code in INDICATOR_META.keys():
+                    meta = INDICATOR_META[code]
+                    row_data = {"Indikator": meta['Name']}
+                    
+                    for country in all_selected:
+                        # Ambil nilai dari kolom 'Raw' di full_df
+                        country_row = full_df[full_df['Country'] == country]
+                        if not country_row.empty:
+                            raw_dict = country_row.iloc[0]['Raw']
+                            row_data[country] = safe_float(raw_dict.get(code, 0))
+                        else:
+                            row_data[country] = 0.0
+                            
+                    comp_rows.append(row_data)
+                
+                df_comp = pd.DataFrame(comp_rows)
+
+                # 3. Logika Warna (Sama seperti sebelumnya)
+                IMPROVEMENT_DIRECTION = {
+                    'wgi': 1, 'gdp_pc': 1, 'world_gdp_share': 1, 'default_record': 1, 
+                    'money_supply': 1, 'gdp_volatility': -1, 'inflation': -1, 'real_growth': 1, 
+                    'gg_debt': -1, 'int_rev': -1, 'fiscal_bal': 1, 'fc_debt': -1, 
+                    'rc_flex': 1, 'snfa': 1, 'commodity_dep': -1, 'reserves_months': 1, 
+                    'ext_int_service': -1, 'ca_fdi': 1
+                }
+
+                def style_comparison(row):
+                    styles = [''] * len(row)
+                    if sel not in row.index: return styles
+                    
+                    anchor_val = row[sel]
+                    code = list(INDICATOR_META.keys())[row.name]
+                    direction = IMPROVEMENT_DIRECTION.get(code, 1)
+
+                    for i, col_name in enumerate(row.index):
+                        if col_name in ['Indikator', sel]: continue
+                        peer_val = row[col_name]
+                        
+                        if direction == 1:  # High is better
+                            if anchor_val > peer_val: 
+                                styles[i] = 'background-color: #d4edda; color: #155724; font-weight: bold;'
+                            elif anchor_val < peer_val: 
+                                styles[i] = 'background-color: #f8d7da; color: #721c24;'
+                        else:  # Low is better
+                            if anchor_val < peer_val: 
+                                styles[i] = 'background-color: #d4edda; color: #155724; font-weight: bold;'
+                            elif anchor_val > peer_val: 
+                                styles[i] = 'background-color: #f8d7da; color: #721c24;'
+                    return styles
+
+                # 4. Render Tabel
+                st.write(f"### Tabel Komparasi: {sel} vs Peers")
+                st.dataframe(
+                    df_comp.style.apply(style_comparison, axis=1).format(precision=2, subset=all_selected),
+                    use_container_width=True, 
+                    height=600
+                )
+                
+                st.info(f"💡 **Hijau** = {sel} lebih baik | **Merah** = {sel} lebih buruk")
+            else:
+                st.info("💡 Pilih negara pembanding dari daftar di atas.")
 
     except Exception as e:
         st.error(f"Error: {e}")
