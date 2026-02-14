@@ -396,14 +396,25 @@ st.markdown("""
 # --- OPSI AKSES DATA ---
 st.markdown("### 📂 Pilih Sumber Data")
 
-data_source = st.radio(
-    "Pilih metode akses data:",
-    ["Upload File Manual", "🔒 Akses Database Terkini (Perlu Passcode)"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
+# ✅ Buat layout 2 kolom: Radio di kiri, Logout di kanan
+col_radio, col_logout = st.columns([4, 1])
 
-# ✅ INISIALISASI di awal
+with col_radio:
+    data_source = st.radio(
+        "Pilih metode akses data:",
+        ["Upload File Manual", "🔒 Akses Database Terkini (Perlu Passcode)"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+with col_logout:
+    # Tampilkan tombol logout hanya jika sudah terautentikasi
+    if st.session_state.get('authenticated', False):
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.authenticated = False
+            st.rerun()
+
+# ✅ Inisialisasi
 uploaded_file = None
 df = None
 
@@ -414,7 +425,6 @@ if data_source == "Upload File Manual":
     )
     
 elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
-    # Cek apakah sudah login
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
     
@@ -424,7 +434,7 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
             passcode_input = st.text_input(
                 "Masukkan Passcode:", 
                 type="password",
-                placeholder="Masukkan passcode yang Anda miliki, contoh: Google12345*"
+                placeholder="Contoh: Dspp2026#"
             )
             submit = st.form_submit_button("🔓 Verifikasi & Akses Database")
             
@@ -436,15 +446,9 @@ elif data_source == "🔒 Akses Database Terkini (Perlu Passcode)":
                 else:
                     st.error("❌ Passcode salah! Akses ditolak.")
     else:
-        # Jika sudah login, load database
+        # ✅ HAPUS tombol logout dari sini (sudah dipindah ke atas)
         st.success("✅ Terautentikasi | Database Terkini Aktif")
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            if st.button("🚪 Logout"):
-                st.session_state.authenticated = False
-                st.rerun()
         
-        # ✅ PERBAIKAN: Unpack tuple dengan benar
         df, _ = load_database()
         if df is None:
             st.stop()
