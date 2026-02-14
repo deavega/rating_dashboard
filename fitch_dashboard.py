@@ -465,7 +465,7 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                 xl = pd.ExcelFile(uploaded_file)
                 sheet_name = next((s for s in xl.sheet_names if 'Data' in s), xl.sheet_names[0])
                 df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
-            #period = extract_period_from_filename(uploaded_file.name)
+            period = extract_period_from_filename(uploaded_file.name)
 
         elif df is not None:  # ← Dari database
             period = "Database Terkini (December 2025)"
@@ -562,7 +562,7 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
         full_df = pd.DataFrame(results)
 
         full_df = pd.DataFrame(results)
-        period = extract_period_from_filename(uploaded_file.name)
+        
         st.markdown(f"### Berdasarkan Data Fitch per **{period}**")
 
         # --- KODE RUNNING TEXT (MARQUEE) ---
