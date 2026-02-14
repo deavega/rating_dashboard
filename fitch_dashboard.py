@@ -513,16 +513,26 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
             try:
                 # Raw Extraction
                 raw = {}
+                
+                # --- FIX: LOGIKA YEARS SINCE DEFAULT ---
+                inv_def = safe_float(r[C['default']]) # Ambil nilai inverse dari Excel (Kolom CL)
+                
+                # Jika nilai > 0, hitung tahunnya: (1 / nilai) - 1
+                if inv_def > 0.001:
+                    raw['default_record'] = (1 / inv_def) - 1
+                else:
+                    # Jika 0 atau kosong, artinya TIDAK PERNAH DEFAULT (Sangat Aman).
+                    # Kita set ke angka tinggi (misal 100 tahun) agar efeknya mendekati 0 di rumus inverse nanti.
+                    raw['default_record'] = 100.0 
+
+                # Sisanya tetap sama...
                 raw['wgi'] = min(safe_float(r[C['wgi']]), 100.0)
                 raw_gni = safe_float(r[C['gdp_pc']])
-                
-                # ... (Lanjutkan sisa logika ekstraksi seperti sebelumnya) ...
-                
                 raw['gdp_pc'] = (raw_gni / 76000 * 100) if raw_gni > 500 else min(raw_gni, 100.0)
+                
                 raw_gdp_val = safe_float(r[C['gdp']])
                 raw['world_gdp_share'] = (raw_gdp_val / total_gdp * 100) if raw_gdp_val > 0 else 0.001
-                inv_def = safe_float(r[C['default']])
-                raw['default_record'] = (1 / inv_def - 1) if inv_def > 0 else 0
+                
                 raw['money_supply'] = max(safe_float(r[C['money']]), 1.0)
                 raw['gdp_volatility'] = max(safe_float(r[C['volat']]), 0.8)
                 raw['inflation'] = safe_float(r[C['cpi']])
@@ -533,19 +543,22 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                 
                 total_debt_val = safe_float(r[C['debt']])
                 lc_debt_val = safe_float(r[C['debt_lc']])
-                raw['fc_debt'] = ((total_debt_val - lc_debt_val) / total_debt_val * 100) if total_debt_val > 0 else 0.0
+                # Pastikan tidak negatif jika data LC debt sedikit error
+                raw['fc_debt'] = max(0.0, ((total_debt_val - lc_debt_val) / total_debt_val * 100)) if total_debt_val > 0 else 0.0
                 
                 rc = safe_float(r[C['res_curr']])
                 raw['rc_flex'] = max(1.0, min(4.6, rc)) if rc > 0 else 0.0
+                
                 raw['snfa'] = safe_float(r[C['snfa']])
                 raw['commodity_dep'] = max(safe_float(r[C['comm']]), 0)
                 raw['reserves_months'] = safe_float(r[C['reserves']])
                 raw['ext_int_service'] = safe_float(r[C['ext_int']])
                 raw['ca_fdi'] = safe_float(r[C['ca_fdi']])
 
+                """ # Indonesia Adjustments (Hardcoded Fitch Rules)
                 if country == 'Indonesia':
                     if raw['wgi'] > 50: raw['wgi'] = 43.6 
-                    if raw['gdp_volatility'] < 1.0: raw['gdp_volatility'] = 2.5
+                    if raw['gdp_volatility'] < 1.0: raw['gdp_volatility'] = 2.5 """
 
                 score, breakdown = calculate_single_score(raw, INTERCEPT, COEFFICIENTS)
                 if raw['rc_flex'] < 1.0 and score > 12.5: score = 12.0
