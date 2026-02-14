@@ -692,21 +692,58 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                                      yaxis=dict(tickmode='array', tickvals=tick_vals, ticktext=tick_text, title="Prediksi Model"))
             st.plotly_chart(fig_bubble, use_container_width=True)
 
-        # --- TAB 2: METODOLOGI ---
+        # --- TAB 2: METODOLOGI (UPDATED) ---
         with tab2:
-            st.subheader("Parameter Indikator")
+            st.header("💡 Metodologi & Model")
+            
+            # --- BAGIAN BARU: PENJELASAN MATEMATIS ---
+            st.subheader("Persamaan Model (SRM)")
+            st.info(f"Model yang sedang aktif: **{selected_version}**")
+            
+            st.markdown("""
+            Fitch Sovereign Rating Model (SRM) menggunakan pendekatan **Regresi Linear Berganda** untuk memprediksi skor kredit jangka panjang (Long-Term Foreign Currency IDR). 
+            Skor akhir dihitung dengan menjumlahkan konstanta dasar (*intercept*) dengan perkalian antara bobot (*coefficient*) dan nilai indikator yang telah ditransformasi.
+            """)
+            
+            # Formula sesuai gambar Anda
+            st.latex(r"Skor_{SRM} = Intercept + \sum (\beta_i \times Indikator_i)")
+            
+            st.markdown(f"""
+            **Keterangan Variabel:**
+            * **$Intercept$**: Konstanta dasar model. Untuk model versi **{selected_version}**, nilai Intercept adalah **`{INTERCEPT}`**.
+            * **$\\beta_i$ (Beta)**: Koefisien regresi atau bobot sensitivitas untuk setiap indikator (lihat tabel di bawah).
+            * **$Indikator_i$**: Nilai variabel input setelah melalui proses transformasi (Logaritma, Inverse, atau Capping).
+            """)
+            
+            st.divider()
+
+            # --- BAGIAN TABEL PARAMETER (EKSISTING) ---
+            st.subheader("Daftar Parameter & Koefisien")
             method_data = []
             for k, coef in COEFFICIENTS.items():
                 meta = INDICATOR_META[k]
                 method_data.append({
-                    'Kode': k, 'Indikator': meta['Name'], 'Kategori': meta['Type'], 'Satuan': meta['Unit'], 'Koefisien': coef, 'Transformasi': meta['Trans']
+                    'Kode': k, 
+                    'Indikator': meta['Name'], 
+                    'Kategori': meta['Type'], 
+                    'Satuan': meta['Unit'], 
+                    'Koefisien (β)': coef, 
+                    'Metode Transformasi': meta['Trans']
                 })
-            st.dataframe(pd.DataFrame(method_data), use_container_width=True, height=600)
+            
+            # Menampilkan tabel dengan formatting
+            df_method = pd.DataFrame(method_data)
+            st.dataframe(
+                df_method.style.format({'Koefisien (β)': '{:.3f}'}), 
+                use_container_width=True, 
+                height=600,
+                hide_index=True
+            )
 
 
         # --- TAB 3: SIMULASI KEBIJAKAN (FIXED & DYNAMIC) ---
         with tab3:
-            st.subheader(f"Simulasi Kebijakan untuk Negara: {sel}")
+            st.subheader(f"Simulasi Kebijakan untuk Negara {sel}")
             st.caption(f"Data awal indikator disesuaikan otomatis berdasarkan profil terkini: **{sel}**.")
             
             # 1. UPLOAD PDF FITCH
