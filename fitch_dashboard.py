@@ -622,13 +622,43 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                 st.subheader(f"Perbandingan vs Peer ({res['Pred Rating']})")
                 peers = full_df[full_df['Pred Rating'] == res['Pred Rating']]
                 hm_rows = []
+                
+                # --- LOGIKA ARAH PERBAIKAN (IMPROVEMENT DIRECTION) ---
+                # 1 = Lebih Tinggi Lebih Baik
+                # -1 = Lebih Rendah Lebih Baik
+                DIRECTION_MAP = {
+                    'wgi': 1, 'gdp_pc': 1, 'world_gdp_share': 1, 'default_record': 1, # FIX: Years harusnya 1 (Makin lama makin baik)
+                    'money_supply': 1, 'gdp_volatility': -1, 'inflation': -1, 'real_growth': 1, 
+                    'gg_debt': -1, 'int_rev': -1, 'fiscal_bal': 1, 'fc_debt': -1, 
+                    'rc_flex': 1, 'snfa': 1, 'commodity_dep': -1, 'reserves_months': 1, 
+                    'ext_int_service': -1, 'ca_fdi': 1
+                }
+
                 for k in COEFFICIENTS.keys():
                     val = res['Raw'][k]
                     peer_vals = [p['Raw'][k] for i, p in peers.iterrows()]
                     avg = np.mean(peer_vals) if peer_vals else val
-                    status = 'Better' if ((val > avg) if COEFFICIENTS[k] > 0 else (val < avg)) else 'Worse'
-                    hm_rows.append({'Indikator': INDICATOR_META[k]['Name'], 'Nilai': val, 'Rerata Peer': avg, 'Status': status})
-                st.dataframe(pd.DataFrame(hm_rows).style.apply(lambda x: [f'background-color: #d4edda' if x['Status']=='Better' else f'background-color: #f8d7da']*4, axis=1), height=700, use_container_width=True)
+                    
+                    # Logika Penentuan Status Baru
+                    direction = DIRECTION_MAP.get(k, 1)
+                    
+                    if direction == 1:
+                        status = 'Better' if val > avg else 'Worse'
+                    else:
+                        status = 'Better' if val < avg else 'Worse'
+
+                    hm_rows.append({
+                        'Indikator': INDICATOR_META[k]['Name'], 
+                        'Nilai': val, 
+                        'Rerata Peer': avg, 
+                        'Status': status
+                    })
+                
+                st.dataframe(
+                    pd.DataFrame(hm_rows).style.apply(lambda x: [f'background-color: #d4edda' if x['Status']=='Better' else f'background-color: #f8d7da']*4, axis=1), 
+                    height=700, 
+                    use_container_width=True
+                )
             
             with col_chart:
                 st.subheader("Kontribusi Poin Indikator")
