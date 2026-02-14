@@ -6,8 +6,40 @@ import plotly.graph_objects as go
 import re
 import gdown
 import json
+import difflib # Library bawaan untuk pencocokan teks
 from io import BytesIO
 
+HISTORICAL_GDRIVE_URL = "https://drive.google.com/file/d/1L122pySsbPDy1tKHbZfUruPWEgMbARHM/view?usp=sharing"
+# --- HELPER: LOAD CSV DARI DRIVE ---
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_historical_data(url):
+    try:
+        # Ekstrak ID dari URL
+        m = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+        if not m: return None
+        file_id = m.group(1)
+        
+        # Download Link
+        direct_url = f'https://drive.google.com/uc?id={file_id}'
+        df = pd.read_csv(direct_url)
+        
+        # Cleaning Data
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        
+        # Standardisasi Nama Kolom (jaga-jaga)
+        if 'Country_TE' in df.columns: 
+            df.rename(columns={'Country_TE': 'Country'}, inplace=True)
+            
+        return df
+    except Exception as e:
+        st.error(f"Gagal memuat data historis: {e}")
+        return None
+# --- HELPER: SMART MATCHING (TANPA LIBRARY TAMBAHAN) ---
+def match_country_name(target, options):
+    # Menggunakan difflib bawaan Python (tidak perlu install thefuzz)
+    matches = difflib.get_close_matches(target, options, n=1, cutoff=0.6)
+    return matches[0] if matches else None    
 
 # Coba import pypdf
 try:
@@ -600,7 +632,7 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
             """, unsafe_allow_html=True)
 
         # --- TAB INIT ---
-        tab1, tab2, tab3, tab4 = st.tabs(["Analisis Negara", "Metodologi", "Simulasi Kebijakan", "Komparasi Indikator"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Analisis Negara", "Metodologi", "Simulasi Kebijakan", "Komparasi Indikator", "Trend Rating"])
 
         # --- GLOBAL SELECTOR (Tab 1 Only) ---
         with tab1:
@@ -694,7 +726,6 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
 
         # --- TAB 2: METODOLOGI (UPDATED) ---
         with tab2:
-            st.header("💡 Metodologi & Model")
             
             # --- BAGIAN BARU: PENJELASAN MATEMATIS ---
             st.subheader("Persamaan Model (SRM)")
@@ -990,6 +1021,146 @@ if uploaded_file is not None or df is not None:  # ✅ Tambahkan pengecekan is n
                 st.info(f"💡 **Hijau** = {sel} lebih baik | **Merah** = {sel} lebih buruk")
             else:
                 st.info("💡 Pilih negara pembanding dari daftar di atas.")
+
+    # --- TAB 5: TREND RATING (VISUAL IMPROVED) ---
+        with tab5:
+            st.subheader(f"Tren Rating Historis: {sel} vs Peers")
+            
+            # --- HELPER KHUSUS TAB INI ---
+            @st.cache_data(ttl=3600, show_spinner=False)
+            def get_gdrive_csv(url):
+                try:
+                    import re
+                    m = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+                    if not m: return None
+                    direct_url = f'https://drive.google.com/uc?id={m.group(1)}'
+                    return pd.read_csv(direct_url)
+                except: return None
+
+            # 1. Load Data
+            hist_df = get_gdrive_csv(HISTORICAL_GDRIVE_URL) 
+            
+            if hist_df is not None:
+                # Cleaning Data
+                if 'Date' in hist_df.columns:
+                    hist_df['Date'] = pd.to_datetime(hist_df['Date'], errors='coerce')
+                
+                # Cleaning Nama Negara
+                if 'Country_TE' in hist_df.columns: hist_df.rename(columns={'Country_TE': 'Country'}, inplace=True)
+                
+                # Ambil daftar negara
+                available_countries = sorted(hist_df['Country'].unique().tolist())
+                
+                # --- MATCHING NEGARA UTAMA ---
+                import difflib
+                matches = difflib.get_close_matches(sel, available_countries, n=1, cutoff=0.6)
+                main_country_name = matches[0] if matches else None
+
+                if main_country_name:
+                    # --- PILIH PEERS (Max 5) ---
+                    peer_options = [c for c in available_countries if c != main_country_name]
+                    
+                    selected_peers = st.multiselect(
+                        "Tambahkan Negara Pembanding (Max 5):",
+                        options=peer_options,
+                        max_selections=5,
+                        placeholder="Pilih negara..."
+                    )
+                    
+                    # Gabungkan Negara Utama + Peers
+                    countries_to_plot = [main_country_name] + selected_peers
+                    
+                    # --- PLOTTING ---
+                    fig_trend = go.Figure()
+                    
+                    # Palet Warna Kontras untuk Peers
+                    peer_colors = ['#E74C3C', '#2ECC71', '#9B59B6', '#F1C40F', '#34495E']
+
+                    for i, c_name in enumerate(countries_to_plot):
+                        c_data = hist_df[hist_df['Country'] == c_name].sort_values(by='Date')
+                        
+                        # Konversi Rating
+                        def get_score(r):
+                            if pd.isna(r): return None
+                            clean = str(r).split('(')[0].strip().replace('*','').replace('u','')
+                            return RATING_TO_NUM.get(clean, None)
+
+                        c_data['Score'] = c_data['Rating'].apply(get_score)
+                        c_data.dropna(subset=['Score'], inplace=True)
+                        
+                        if c_data.empty: continue
+
+                        # Style Berbeda
+                        if c_name == main_country_name:
+                            # NEGARA UTAMA: Biru Tebal, Marker Besar
+                            line_style = dict(color='#1E3A8A', width=5, shape='hv') 
+                            marker_style = dict(size=12, color='#1E3A8A', line=dict(width=2, color='white'))
+                            opacity = 1.0
+                            legend_name = f"🔹 {c_name}"
+                            zorder = 10 # Pastikan selalu di paling atas (depan)
+                        else:
+                            # PEERS: Warna-warni, Agak Tebal (Solid), Marker Sedang
+                            color = peer_colors[i % len(peer_colors)]
+                            line_style = dict(color=color, width=3, shape='hv') # Hapus dash='dot' biar jelas
+                            marker_style = dict(size=8, color=color, symbol='circle')
+                            opacity = 0.9 # Buat lebih solid
+                            legend_name = c_name
+                            zorder = 5
+
+                        fig_trend.add_trace(go.Scatter(
+                            x=c_data['Date'], 
+                            y=c_data['Score'],
+                            mode='lines+markers',
+                            name=legend_name,
+                            line=line_style,
+                            marker=marker_style,
+                            opacity=opacity,
+                            hovertemplate=f"<b>{c_name}</b><br>Rating: %{{text}}<br>Date: %{{x|%d %b %Y}}<extra></extra>",
+                            text=c_data['Rating']
+                        ))
+
+                    # --- SETUP AXIS & LAYOUT ---
+                    unique_vals = set(RATING_TO_NUM.values())
+                    y_vals = sorted([v for v in unique_vals if v is not None])
+                    y_text = [NUM_TO_RATING.get(v, '') for v in y_vals]
+
+                    fig_trend.update_layout(
+                        height=600,
+                        hovermode="x unified",
+                        # --- KONFIGURASI LEGEND DI TENGAH ATAS ---
+                        legend=dict(
+                            orientation="h",        # Horizontal
+                            yanchor="bottom",       # Jangkar bawah
+                            y=1.05,                 # Posisi di atas grafik (sedikit naik)
+                            xanchor="center",       # Jangkar tengah
+                            x=0.5,                  # Tepat di tengah horizontal
+                            bgcolor="rgba(255,255,255,0.8)",
+                            bordercolor="#e0e0e0",
+                            borderwidth=1
+                        ),
+                        yaxis=dict(
+                            tickmode='array',
+                            tickvals=y_vals,
+                            ticktext=y_text,
+                            gridcolor='#e0e0e0',
+                            range=[-1, 17],
+                            tickfont=dict(size=14, color='black', weight='bold') # Font Axis Y Besar
+                        ),
+                        xaxis=dict(
+                            title="", 
+                            gridcolor='#f0f0f0',
+                            tickfont=dict(size=14, color='black') # Font Axis X Besar
+                        ),
+                        plot_bgcolor='white',
+                        margin=dict(t=80, b=30, l=20, r=20) # Margin atas ditambah untuk legend
+                    )
+                    
+                    st.plotly_chart(fig_trend, use_container_width=True)
+                    
+                else:
+                    st.warning(f"⚠️ Data historis untuk **{sel}** tidak ditemukan di database.")
+            else:
+                st.error("Gagal memuat file historis dari Google Drive.")
 
     except Exception as e:
         st.error(f"❌ Error saat memproses data: {e}")
