@@ -5,7 +5,8 @@
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
 **Sovereign Credit Watch** is an interactive analytical dashboard designed to replicate the **Fitch Ratings Sovereign Rating Model (SRM)**. It allows analysts, economists, and researchers to reverse-engineer sovereign credit scores, visualize peer comparisons, and simulate the impact of economic policy changes on a country's credit rating.
-**Hosting server:** 🚀 [live dashboard](https://dashboardsrm.streamlit.app/)
+
+**Hosting server:** [live dashboard](https://dashboardsrm.streamlit.app/)
 
 ## 🚀 Motivation
 
